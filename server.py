@@ -1,27 +1,32 @@
 from flask import Flask, request, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'hadar_secret_key_123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hadarcabulary.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# מאפשר ל-React (פורט 5173) לדבר עם הפייתון
-CORS(app, supports_credentials=True, origins=["http://localhost:5173"])
+# תיקון ה-CORS: אישור מדויק לנטליפיי ולמחשב שלך לגשת לשרת
+CORS(app, supports_credentials=True, resources={
+    r"/api/*": {
+        "origins": ["http://localhost:5173", "https://hadarcabulary.netlify.app"]
+    }
+})
+
 db = SQLAlchemy(app)
 
-# ----------------- DB MODELS -----------------
-
+# --- Models ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    phone_number = db.Column(db.String(20), unique=True, nullable=False)
     first_name = db.Column(db.String(50), nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-    current_streak = db.Column(db.Integer, default=0)
-    last_practice_date = db.Column(db.String(20), nullable=True)
+    phone_number = db.Column(db.String(20), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    streak = db.Column(db.Integer, default=0)
+    last_practice_date = db.Column(db.Date, nullable=True)
 
 class Unit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -34,125 +39,114 @@ class Word(db.Model):
     hebrew = db.Column(db.String(100), nullable=False)
 
 class UserProgress(db.Model):
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
-    word_id = db.Column(db.Integer, db.ForeignKey('word.id'), primary_key=True)
-    status = db.Column(db.String(1), default='X') # 'V' = יודע, 'X' = לא יודע
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    word_id = db.Column(db.Integer, db.ForeignKey('word.id'), nullable=False)
+    status = db.Column(db.String(10), default='X')
 
-# ----------------- API ENDPOINTS -----------------
+# --- Routes (כולם מתחילים ב- /api/ כמו שצריך) ---
 
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     if User.query.filter_by(phone_number=data['phone_number']).first():
-        return jsonify({'error': 'מספר הטלפון כבר קיים במערכת!'}), 400
+        return jsonify({'error': 'מספר הטלפון כבר רשום במערכת'}), 400
     
-    hashed_password = generate_password_hash(data['password'])
-    new_user = User(
-        phone_number=data['phone_number'],
-        first_name=data['first_name'],
-        password_hash=hashed_password
-    )
+    hashed_pw = generate_password_hash(data['password'])
+    new_user = User(first_name=data['first_name'], phone_number=data['phone_number'], password_hash=hashed_pw)
     db.session.add(new_user)
     db.session.commit()
-    return jsonify({'message': 'נרשמת בהצלחה! מוזמנת להתחבר'})
+    return jsonify({'message': 'נרשמת בהצלחה! אפשר להתחבר.'})
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     user = User.query.filter_by(phone_number=data['phone_number']).first()
-    if not user or not check_password_hash(user.password_hash, data['password']):
-        return jsonify({'error': 'אופס... מספר טלפון או סיסמה לא נכונים'}), 401
-    
-    session['user_id'] = user.id
-    return jsonify({'message': f'היי {user.first_name}, טוב לראות אותך!', 'first_name': user.first_name})
+    if user and check_password_hash(user.password_hash, data['password']):
+        session['user_id'] = user.id
+        return jsonify({'first_name': user.first_name})
+    return jsonify({'error': 'פרטים לא נכונים, נסי שוב!'}), 401
 
 @app.route('/api/dashboard', methods=['GET'])
-def get_dashboard():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({'error': 'אנא התחברי קודם'}), 401
+def dashboard():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
     
-    user = User.query.get(user_id)
+    user = User.query.get(session['user_id'])
     units = Unit.query.all()
-    
     units_data = []
-    for u in units:
-        words = Word.query.filter_by(unit_id=u.id).all()
-        total_words = len(words)
-        
-        # ספירת כמה מילים סומנו כ-V עבור המשתמש הנוכחי ביחידה הזו
-        word_ids = [w.id for w in words]
-        known_words = UserProgress.query.filter(
-            UserProgress.user_id == user_id,
-            UserProgress.word_id.in_(word_ids),
+    
+    for unit in units:
+        total_words = Word.query.filter_by(unit_id=unit.id).count()
+        known_words = db.session.query(UserProgress).join(Word).filter(
+            UserProgress.user_id == user.id,
+            Word.unit_id == unit.id,
             UserProgress.status == 'V'
         ).count()
         
-        progress_percent = int((known_words / total_words) * 100) if total_words > 0 else 0
+        progress = int((known_words / total_words) * 100) if total_words > 0 else 0
+        
         units_data.append({
-            'id': u.id,
-            'name': u.name,
+            'id': unit.id,
+            'name': unit.name,
             'total_words': total_words,
             'known_words': known_words,
-            'progress': progress_percent
+            'progress': progress
         })
         
     return jsonify({
         'first_name': user.first_name,
-        'streak': user.current_streak,
+        'streak': user.streak,
         'units': units_data
     })
 
 @app.route('/api/words/<int:unit_id>', methods=['GET'])
 def get_words(unit_id):
-    user_id = session.get('user_id')
-    if not user_id:
-         return jsonify({'error': 'Unauthorized'}), 401
-         
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    user_id = session['user_id']
     words = Word.query.filter_by(unit_id=unit_id).all()
-    words_list = []
+    words_data = []
     
     for w in words:
         progress = UserProgress.query.filter_by(user_id=user_id, word_id=w.id).first()
         status = progress.status if progress else 'X'
-        words_list.append({
+        words_data.append({
             'id': w.id,
             'english': w.english,
             'hebrew': w.hebrew,
             'status': status
         })
-    return jsonify(words_list)
+        
+    return jsonify(words_data)
 
 @app.route('/api/update-word', methods=['POST'])
 def update_word():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
         
     data = request.json
-    progress = UserProgress.query.filter_by(user_id=user_id, word_id=data['word_id']).first()
+    user_id = session['user_id']
+    user = User.query.get(user_id)
     
+    progress = UserProgress.query.filter_by(user_id=user_id, word_id=data['word_id']).first()
     if progress:
         progress.status = data['status']
     else:
         progress = UserProgress(user_id=user_id, word_id=data['word_id'], status=data['status'])
         db.session.add(progress)
         
-    # עדכון מנגנון הסטריקים בעת תרגול
-    user = User.query.get(user_id)
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    yesterday_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-    
-    if user.last_practice_date == yesterday_str:
-        user.current_streak += 1
-    elif user.last_practice_date != today_str:
-        user.current_streak = 1
-        
-    user.last_practice_date = today_str
-    db.session.commit()
-    
-    return jsonify({'success': True, 'streak': user.current_streak})
+    today = datetime.now().date()
+    if user.last_practice_date != today:
+        if user.last_practice_date == today - timedelta(days=1):
+            user.streak += 1
+        else:
+            user.streak = 1
+        user.last_practice_date = today
 
+    db.session.commit()
+    return jsonify({'streak': user.streak})
 # ----------------- SEEDING DATA (מילוי מילים אוטומטי) -----------------
 
 def seed_data():
