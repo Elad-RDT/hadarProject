@@ -34,7 +34,7 @@ function App() {
   const apiFetch = async (endpoint, options = {}) => {
     options.headers = { ...options.headers, 'Content-Type': 'application/json' };
     options.credentials = 'include';
-    const res = await fetch(`http://localhost:5000/api${endpoint}`, options);
+    const res = await fetch(`https://hadarcabulary-backend.onrender.com/api${endpoint}`, options);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'משהו השתבש');
     return data;
