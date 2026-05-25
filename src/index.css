@@ -1,18 +1,41 @@
 @import "tailwindcss";
+@config "../tailwind.config.js";
 
-body {
-  font-family: 'Rubik', sans-serif !important;
-}
-/* ואז האנימציות שלנו מתחת */
-.perspective-1000 {
-  perspective: 1000px;
-}
-.transform-style-3d {
-  transform-style: preserve-3d;
-}
-.backface-hidden {
-  backface-visibility: hidden;
-}
-.rotate-y-180 {
-  transform: rotateY(180deg);
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+
+@layer base {
+  :root {
+    --background: 270 30% 98%;
+    --foreground: 270 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 270 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 40% 10%;
+    --primary: 265 84% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 270 30% 94%;
+    --secondary-foreground: 270 40% 15%;
+    --muted: 270 20% 94%;
+    --muted-foreground: 270 10% 45%;
+    --accent: 330 80% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 270 20% 90%;
+    --input: 270 20% 90%;
+    --ring: 265 84% 55%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+    outline-color: hsl(var(--ring) / 0.5);
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Heebo', sans-serif;
+    direction: rtl;
+  }
 }

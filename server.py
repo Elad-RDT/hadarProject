@@ -8,19 +8,31 @@ import os
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'hadar_secret_key_123'
 
-# 1. הגדרת נתיב מוחלט למסד הנתונים כדי ש-Render לא יאבד אותו
-basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'hadarcabulary.db')
+# הגדרה חכמה: בענן מתחברים ל-PostgreSQL, במחשב המקומי ל-SQLite
+if os.environ.get('RENDER'):
+    # Render משתמש בכתובת שמתחילה ב-postgres://, אבל SQLAlchemy המודרני דורש postgresql://
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url and db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+else:
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'hadarcabulary.db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # 2. הגדרות חובה כדי שעוגיות (התחברות) יעבדו בין שני דומיינים שונים בענן
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
-# 3. תיקון ה-CORS: אישור מדויק לנטליפיי ולמחשב שלך
+# תיקון ה-CORS: אישור לנטליפיי ולסביבת הפיתוח של המחשב (לשני הפורטים האפשריים)
 CORS(app, supports_credentials=True, resources={
     r"/api/*": {
-        "origins": ["http://localhost:5173", "https://hadarcabulary.netlify.app"]
+        "origins": [
+            "http://localhost:5173", 
+            "http://localhost:5174", 
+            "https://hadarcabulary.netlify.app"
+        ]
     }
 })
 

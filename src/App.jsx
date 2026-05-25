@@ -7,20 +7,17 @@ function App() {
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [selectedUnitName, setSelectedUnitName] = useState('');
   
-  // נתוני תרגול, רשימה ומבחן
   const [words, setWords] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [filterMode, setFilterMode] = useState('all'); // all, only_X
+  const [filterMode, setFilterMode] = useState('all');
   
-  // נתוני מבחן
   const [examWords, setExamWords] = useState([]);
   const [examAnswers, setExamAnswers] = useState([]);
   const [examFinished, setExamFinished] = useState(false);
   const [examCount, setExamCount] = useState('10');
-  const [examUnitId, setExamUnitId] = useState('1'); // ברירת מחדל יחידה 1
+  const [examUnitId, setExamUnitId] = useState('1');
 
-  // טפסים
   const [isLogin, setIsLogin] = useState(true);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -28,15 +25,17 @@ function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-  if (user) {
-    fetchDashboard();
-  }
-}, []);
+    if (user) fetchDashboard();
+  }, [user]);
 
   const apiFetch = async (endpoint, options = {}) => {
     options.headers = { ...options.headers, 'Content-Type': 'application/json' };
     options.credentials = 'include';
-    const res = await fetch(`https://hadarcabulary-backend.onrender.com/api${endpoint}`, options);
+    const baseURL = import.meta.env.DEV 
+      ? 'http://localhost:5000/api' 
+      : 'https://hadarcabulary-backend.onrender.com/api';
+
+    const res = await fetch(`${baseURL}${endpoint}`, options);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'משהו השתבש');
     return data;
@@ -84,39 +83,21 @@ function App() {
     }
   };
 
-  const openWordList = async (unitId, unitName) => {
-    try {
-      const data = await apiFetch(`/words/${unitId}`);
-      setWords(data);
-      setSelectedUnit(unitId);
-      setSelectedUnitName(unitName);
-      setPage('word_list');
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   const handleWordStatus = async (wordId, status) => {
     try {
       const data = await apiFetch('/update-word', {
         method: 'POST',
         body: JSON.stringify({ word_id: wordId, status })
       });
-      
-      // עדכון הסטטוס לוקאלית ברשימת המילים
       setWords(words.map(w => w.id === wordId ? { ...w, status } : w));
-      
-      if (dashboardData) {
-        setDashboardData({ ...dashboardData, streak: data.streak });
-      }
+      if (dashboardData) setDashboardData({ ...dashboardData, streak: data.streak });
 
-      // אם אנחנו במצב כרטיסיות (תרגול), נעבור אוטומטית למילה הבאה
       if (page === 'practice') {
         if (currentIndex < getFilteredWords().length - 1) {
           setIsFlipped(false);
           setTimeout(() => setCurrentIndex(currentIndex + 1), 200);
         } else {
-          alert("🔥 כל הכבוד הדר! סיימת את המילים בסינון זה!");
+          alert("🔥 כל הכבוד! סיימת את המילים בסינון זה!");
           fetchDashboard();
         }
       }
@@ -125,51 +106,37 @@ function App() {
     }
   };
 
-  // פונקציית עזר לבדיקה אם המשתמש כבר נגע במילה או שהיא במצב ברירת מחדל לא מסומן
-  const checkRealStatus = (word) => {
-    // לצורך הפרויקט, אם המילה במצב 'X', השרת מחזיר 'X'. 
-    // הוספנו לוגיקה נוחה בדשבורד להצגת "טרם סומן" אם המשתמש רוצה לדעת ממה להתחיל.
-    return word.status; 
-  };
-
-  const getFilteredWords = () => {
-    if (filterMode === 'only_X') {
-      return words.filter(w => w.status === 'X');
-    }
-    return words;
-  };
+  const getFilteredWords = () => filterMode === 'only_X' ? words.filter(w => w.status === 'X') : words;
 
   const speakWord = (text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
-      utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     }
   };
 
-const startExam = async (count, unitId) => {
-  try {
-    const data = await apiFetch(`/words/${unitId}`);
-    let shuffled = [...data];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  const startExam = async (count, unitId) => {
+    try {
+      const data = await apiFetch(`/words/${unitId}`);
+      let shuffled = [...data];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      if (count !== 'all') shuffled = shuffled.slice(0, parseInt(count));
+      setExamWords(shuffled);
+      setExamAnswers([]);
+      setCurrentIndex(0);
+      setIsFlipped(false);
+      setExamFinished(false);
+      setPage('exam');
+    } catch (err) {
+      alert(err.message);
     }
-    if (count !== 'all') {
-      shuffled = shuffled.slice(0, parseInt(count));
-    }
-    setExamWords(shuffled);
-    setExamAnswers([]);
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setExamFinished(false);
-    setPage('exam');
-  } catch (err) {
-    alert(err.message);
-  }
-};
+  };
+
   const handleExamAnswer = (isCorrect) => {
     setExamAnswers([...examAnswers, { wordId: examWords[currentIndex].id, correct: isCorrect }]);
     if (currentIndex < examWords.length - 1) {
@@ -180,330 +147,272 @@ const startExam = async (count, unitId) => {
     }
   };
 
-  const getExamGrade = () => {
-    const correctCount = examAnswers.filter(a => a.correct).length;
-    return Math.round((correctCount / examWords.length) * 100);
-  };
-
-  const getMotivationalMessage = (grade) => {
-    if (grade >= 95) return `👑 וואו ${user}! את פשוט מלכת אוקספורד! ציון מטורף, אין עליך בעולם!`;
-    if (grade >= 80) return `💪 כל הכבוד ${user}! ציון מעולה! האנגלית שלך משתבחת מרגע לרגע!`;
-    if (grade >= 60) return `👍 לא רע בכלל ${user}, אבל אני יודע שאת מסוגלת ליותר. פעם הבאה מפרקים אותם!`;
-    return `🫣 נו באמת ${user}... אפילו שייקספיר בכה עכשיו. חזרה זריזה לכרטיסיות ויאללה להפציץ!`;
-  };
+  const getExamGrade = () => Math.round((examAnswers.filter(a => a.correct).length / examWords.length) * 100);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-[#fafafa] text-foreground font-heebo" dir="rtl">
       
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm border-b border-slate-200 py-4 px-6 flex justify-between items-center">
-  <h1 className="text-2xl font-black text-indigo-600 tracking-tight cursor-pointer" onClick={fetchDashboard}>
-  <img src="/bj.png" alt="BJFC Logo" className="inline-block w-6 h-6 mr-2 align-middle" /> HadarCabulary <span className="text-xs font-normal text-slate-400">Vocabulary By R.D.T</span>
-</h1>
-        {user && (
-          <div className="flex items-center gap-4">
-            <span className="font-medium text-slate-600">שלום, <strong className="text-indigo-600">{user}</strong> <img src="/hadarFace.jpeg" alt="Hadar" className="inline-block w-6 h-6 mr-2 align-middle" /></span>
-            <button onClick={() => { setUser(null); localStorage.removeItem('hadar_user'); setPage('auth'); }} className="text-sm bg-slate-100 hover:bg-red-50 hover:text-red-600 px-3 py-1.5 rounded-lg transition-all font-medium">התנתקות</button>          </div>
-        )}
-      </nav>
+{/* NAVBAR - יוצג רק אם אנחנו לא בעמוד ההתחברות */}
+{page !== 'auth' && (
+  <nav className="bg-white shadow-sm border-b border-border py-4 px-8 flex justify-between items-center sticky top-0 z-50">
+    <h1 className="text-2xl font-black text-primary flex items-center gap-2 cursor-pointer" onClick={fetchDashboard}>
+      HadarCabulary <img src="/bj.png" alt="Hadar" className="inline-block w-15 h-15 mr-0 align-middle" />
+    </h1>
+    {user && (
+      <div className="flex items-center gap-6">
+        <div className="hidden md:flex gap-3">
+          <button onClick={fetchDashboard} className={`font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${page === 'dashboard' ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+            לוח בקרה <span className="text-lg">🎛️</span>
+          </button>
+        </div>
+        <button onClick={() => { setUser(null); localStorage.removeItem('hadar_user'); setPage('auth'); }} className="text-slate-400 hover:text-destructive flex items-center gap-2 text-sm font-bold">
+          <span className="text-xl">🚪</span> התנתקות
+        </button>
+      </div>
+    )}
+  </nav>
+)}
 
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-5xl mx-auto p-6 md:p-8">
         
-        {/* PAGE 1: LOGIN / REGISTER */}
+        {/* עמוד התחברות */}
         {page === 'auth' && (
-          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-8 max-w-md mx-auto mt-12 text-center">
-            <h2 className="text-3xl font-extrabold text-slate-900 mb-2"><img src="/hadarFace.jpeg" alt="Hadar" className="inline-block w-17 h-17 mr-5 align-middle" /> HadarCabulary </h2>
-            <p className="text-slate-500 mb-6 text-sm">המקום היחיד שבו שכחת מילה באנגלית גוררת שיפוטיות קלה, אבל עם המון אהבה וחיזוקים!</p>
+          <div className="bg-white border border-border shadow-xl rounded-3xl p-10 max-w-md mx-auto mt-12 text-center">
+            <h2 className="text-4xl font-extrabold text-slate-900 mb-3"><img src="/hadarFace.jpeg" alt="Hadar" className="inline-block w-30 h-30 mr-0 align-middle rounded-full" /> HadarCabulary</h2>
+            <p className="text-muted-foreground mb-8">אחלה דוד</p>
             
-            <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-              <button type="button" className={`w-1/2 py-2 text-sm font-bold rounded-lg transition-all ${isLogin ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`} onClick={() => setIsLogin(true)}>התחברות</button>
-              <button type="button" className={`w-1/2 py-2 text-sm font-bold rounded-lg transition-all ${!isLogin ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`} onClick={() => setIsLogin(false)}>הרשמה זריזה</button>
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
+              <button type="button" className={`w-1/2 py-2.5 text-sm font-bold rounded-xl transition-all ${isLogin ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setIsLogin(true)}>התחברות</button>
+              <button type="button" className={`w-1/2 py-2.5 text-sm font-bold rounded-xl transition-all ${!isLogin ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setIsLogin(false)}>הרשמה מהירה</button>
             </div>
 
-            <form onSubmit={handleAuth} className="space-y-4 text-right">
+            <form onSubmit={handleAuth} className="space-y-5 text-right">
               {!isLogin && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">שם פרטי</label>
-                  <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-center" placeholder="איך לקרוא לך?" />
+                  <label className="block text-sm font-bold text-slate-700 mb-2">איך לקרוא לך?</label>
+                  <input type="text" required value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
                 </div>
               )}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">מספר פלאפון</label>
-                <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-center" placeholder="0500000000" />
+                <label className="block text-sm font-bold text-slate-700 mb-2">מספר פלאפון</label>
+                <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-left" dir="ltr" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">סיסמה</label>
-                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-center" placeholder="••••••••" />
+                <label className="block text-sm font-bold text-slate-700 mb-2">סיסמה</label>
+                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-left" dir="ltr" />
               </div>
               
-              {error && <p className="text-red-500 font-medium text-sm text-center">{error}</p>}
+              {error && <p className="text-destructive font-bold text-sm text-center bg-destructive/10 p-3 rounded-xl">{error}</p>}
               
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl shadow-lg shadow-indigo-100 transition-all mt-2">
-                {isLogin ? 'קדימה, בואי נלמד!' : 'יאללה, תרשמו אותי!'}
+              <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold p-4 rounded-2xl shadow-lg shadow-primary/30 transition-all text-lg mt-4">
+                {isLogin ? 'כניסה למערכת' : 'יצירת משתמש'}
               </button>
             </form>
           </div>
         )}
 
-        {/* PAGE 2: DASHBOARD */}
+        {/* לוח הבקרה (DASHBOARD) המשוחזר */}
         {page === 'dashboard' && dashboardData && (
-          <div className="space-y-8">
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl p-6 shadow-xl flex justify-between items-center">
+          <div className="space-y-10">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div>
-                <h3 className="text-2xl font-black">היי {dashboardData.first_name}, מוכנה להפציץ היום? 🎯</h3>
-                <p className="text-indigo-100 text-sm mt-1">כל יום של תרגול מקרב אותך לשליטה מלאה!</p>
+                <h2 className="text-4xl font-black text-slate-900 flex items-center gap-3">
+                  היי {dashboardData.first_name} <img src="/hadarFace.jpeg" alt="Hadar" className="inline-block w-20 h-20 mr-0 align-middle rounded-full" />
+                </h2>
+                <p className="text-slate-500 text-lg mt-2">בואי נכבוש עוד מילים! 💪</p>
               </div>
-              <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl text-center border border-white/20">
-                <span className="block text-3xl">🔥 {dashboardData.streak}</span>
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-200">ימי רצף!</span>
+              
+              {/* הקובייה הכתומה המקורית מהתמונה */}
+              <div className="bg-gradient-to-r from-[#ff6a00] to-[#ee0979] text-white rounded-[24px] p-6 shadow-xl shadow-orange-500/20 text-center min-w-[140px] flex flex-col items-center justify-center">
+                <span className="block text-5xl font-black mb-1">{dashboardData.streak}</span>
+                <span className="text-sm font-bold flex items-center justify-center gap-1">ימים ברצף 🔥</span>
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-              <h4 className="text-lg font-bold text-slate-900 mb-4">יחידות הלימוד שלך:</h4>
-              <div className="space-y-4">
+            {/* Units Grid */}
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 mb-6 border-b-2 border-slate-100 pb-2 inline-block">היחידות שלך</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {dashboardData.units.map(unit => (
-                  <div key={unit.id} className="border border-slate-100 rounded-xl p-4 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 hover:border-indigo-100 transition-all bg-slate-50/50">
-                    <div className="flex-1 space-y-2">
-                      <span className="font-bold text-slate-800 text-base block">{unit.name}</span>
-                      <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
-                        <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${unit.progress}%` }}></div>
-                      </div>
-                      <span className="text-xs font-medium text-slate-400 block">את יודעת {unit.known_words} מתוך {unit.total_words} מילים ({unit.progress}%)</span>
+                  <div key={unit.id} className="bg-white border border-slate-200 rounded-[24px] p-8 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex justify-between items-start mb-8">
+                      <h4 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                        <span className="text-slate-400 text-2xl">📖</span> {unit.name}
+                      </h4>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button onClick={() => openWordList(unit.id, unit.name)} className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold px-3 py-2 rounded-xl transition-all text-sm shadow-sm flex items-center gap-1">צפייה בכל המילים 👁️</button>
-                      <button onClick={() => startPractice(unit.id)} className="bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 font-bold px-3 py-2 rounded-xl transition-all text-sm shadow-sm">כרטיסיות תרגול 🃏</button>
-                      <button onClick={() => startExam('30', unit.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl transition-all text-sm shadow-md shadow-indigo-100">מבחן מהיר 📝</button>                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="space-y-2 mb-8">
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm font-bold text-slate-600 w-12">{unit.progress}%</span>
+                        <div className="flex-1 bg-primary/10 rounded-full h-3">
+                          <div className="bg-primary h-3 rounded-full transition-all duration-1000" style={{ width: `${unit.progress}%` }}></div>
+                        </div>
+                      </div>
+                      <div className="text-left text-xs font-bold text-slate-400">{unit.known_words} מתוך {unit.total_words} מילים</div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                      <button onClick={() => startPractice(unit.id)} className="bg-slate-50 hover:bg-primary/10 text-primary border border-primary/20 font-bold px-6 py-2.5 rounded-xl transition-all text-sm">תרגול 🃏</button>
+                      <button onClick={() => startExam('30', unit.id)} className="bg-primary hover:bg-primary/90 text-white font-bold px-6 py-2.5 rounded-xl transition-all text-sm shadow-md shadow-primary/30">מבחן 📝</button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-<div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-center">
-  <h4 className="text-lg font-bold text-slate-900 mb-4">מוכנה לבחון את עצמך? 🚀</h4>
-  
-  <div className="flex flex-col md:flex-row justify-center items-center gap-4 max-w-xl mx-auto mb-6">
-    {/* 1. בחירת יחידה מהרשימה הקיימת בדינמיות */}
-    <div className="w-full md:w-1/2 text-right">
-      <label className="block text-xs font-bold text-slate-500 mb-1">1. בחרי יחידת לימוד:</label>
-      <select 
-        value={examUnitId} 
-        onChange={(e) => setExamUnitId(e.target.value)}
-        className="w-full border border-slate-200 bg-slate-50 p-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
-      >
-        {dashboardData.units.map(u => (
-          <option key={u.id} value={u.id}>{u.name}</option>
-        ))}
-      </select>
-    </div>
-
-    {/* 2. בחירת כמות מילים */}
-    <div className="w-full md:w-1/2 text-right">
-      <label className="block text-xs font-bold text-slate-500 mb-1">2. כמות מילים למבחן:</label>
-      <select 
-        value={examCount} 
-        onChange={(e) => setExamCount(e.target.value)}
-        className="w-full border border-slate-200 bg-slate-50 p-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
-      >
-        <option value="10">10 מילים</option>
-        <option value="30">30 מילים</option>
-        <option value="50">50 מילים</option>
-        <option value="all">כל מילות היחידה</option>
-      </select>
-    </div>
-  </div>
-
-  <button 
-    onClick={() => startExam(examCount, examUnitId)}
-    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-xl transition-all text-sm shadow-md shadow-indigo-100 w-full max-w-xs mx-auto block"
-  >
-    התחלת מבחן ממוקד ✍️
-  </button>
-</div>
+            {/* אזור בחינה ממוקדת בתחתית */}
+            <div className="bg-white border border-slate-200 rounded-[24px] p-8 shadow-sm mt-8">
+              <h4 className="text-xl font-black text-slate-900 mb-6 text-center">מוכנה לבחון את עצמך? 🚀</h4>
+              <div className="flex flex-col md:flex-row justify-center items-center gap-6 max-w-2xl mx-auto mb-8">
+                <div className="w-full md:w-1/2">
+                  <label className="block text-sm font-bold text-slate-500 mb-2">1. בחרי יחידת לימוד:</label>
+                  <select value={examUnitId} onChange={(e) => setExamUnitId(e.target.value)} className="w-full border border-slate-200 bg-slate-50 text-slate-800 p-3.5 rounded-2xl focus:outline-none focus:border-primary font-bold">
+                    {dashboardData.units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+                <div className="w-full md:w-1/2">
+                  <label className="block text-sm font-bold text-slate-500 mb-2">2. כמות מילים למבחן:</label>
+                  <select value={examCount} onChange={(e) => setExamCount(e.target.value)} className="w-full border border-slate-200 bg-slate-50 text-slate-800 p-3.5 rounded-2xl focus:outline-none focus:border-primary font-bold">
+                    <option value="10">10 מילים</option>
+                    <option value="30">30 מילים</option>
+                    <option value="50">50 מילים</option>
+                    <option value="all">כל מילות היחידה</option>
+                  </select>
+                </div>
+              </div>
+              <button onClick={() => startExam(examCount, examUnitId)} className="bg-primary hover:bg-primary/90 text-white font-bold px-10 py-4 rounded-2xl transition-all text-base shadow-lg shadow-primary/30 mx-auto block w-full max-w-sm">התחלת מבחן ממוקד ✍️</button>
+            </div>
           </div>
         )}
 
-        {/* PAGE 3: PRACTICE ROOM (FLASHCARDS) */}
+        {/* אזור התרגול (FLASHCARDS) המשוחזר מהתמונה */}
+{/* אזור התרגול (FLASHCARDS) המשוחזר מהתמונה */}
         {page === 'practice' && getFilteredWords().length > 0 && (
-          <div className="space-y-6 text-center">
-            <div className="flex justify-between items-center bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-              <button onClick={fetchDashboard} className="text-sm bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-all font-bold text-slate-700">חזרה לבית 🏠</button>
-              <div className="flex items-center gap-3">
-                <label className="text-xs font-bold text-slate-500">מצב תרגול:</label>
-                <select value={filterMode} onChange={(e) => { setFilterMode(e.target.value); setCurrentIndex(0); setIsFlipped(false); }} className="border border-slate-200 bg-slate-50 text-sm p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
-                  <option value="all">כל מילות היחידה</option>
-                  <option value="only_X">רק מילים שסימנתי כ-לא יודע (❌)</option>
-                </select>
-              </div>
-              <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">מילה {currentIndex + 1} מתוך {getFilteredWords().length}</span>
+          <div className="max-w-2xl mx-auto">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-black text-slate-900">תרגול כרטיסיות</h2>
+              <span className="text-sm font-bold text-slate-500 bg-slate-200/50 px-4 py-1.5 rounded-full">מילה {currentIndex + 1} מתוך {getFilteredWords().length}</span>
             </div>
 
-            <div className="flex items-center justify-between gap-4 max-w-xl mx-auto my-4">
-              <button onClick={() => { if(currentIndex > 0) { setCurrentIndex(currentIndex - 1); setIsFlipped(false); } }} disabled={currentIndex === 0} className="bg-white hover:bg-indigo-50 border border-slate-200 p-3 rounded-full shadow-sm transition-all disabled:opacity-30 disabled:hover:bg-white text-lg font-bold">➡️</button>
+            <div className="flex items-center justify-center gap-6 my-10">
+              {/* חץ ימינה */}
+              <button onClick={() => { if(currentIndex > 0) { setCurrentIndex(currentIndex - 1); setIsFlipped(false); } }} disabled={currentIndex === 0} className="w-14 h-14 bg-white border border-slate-200 rounded-full flex justify-center items-center shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all shrink-0">
+                <div className="bg-blue-500 text-white w-6 h-6 rounded flex justify-center items-center font-bold">➡️</div>
+              </button>
 
-              <div className="w-full h-72 perspective-1000" onClick={() => setIsFlipped(!isFlipped)}>
-                <div className={`w-full h-full duration-500 transform-style-3d relative cursor-pointer rounded-2xl shadow-xl border border-slate-200/60 ${isFlipped ? 'rotate-y-180' : ''}`}>
+              {/* הכרטיסייה עם תיקון קבוע לכתב המראה */}
+              <div className="w-full max-w-md h-80" style={{ perspective: '1000px' }} onClick={() => setIsFlipped(!isFlipped)}>
+                <div 
+                  className="w-full h-full transition-transform duration-500 relative cursor-pointer" 
+                  style={{ 
+                    transformStyle: 'preserve-3d',
+                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
+                  }}
+                >
                   
-                  {/* FRONT SIDE (ENGLISH) - עם כפתור הרמקול החדש */}
-                  <div className="absolute inset-0 bg-white rounded-2xl backface-hidden flex flex-col justify-center items-center p-6">
-                    <span className="text-xs font-black text-indigo-500 uppercase tracking-widest mb-1">English</span>
-                    <h3 className="text-4xl font-extrabold text-slate-900 tracking-tight">{getFilteredWords()[currentIndex].english}</h3>
-                    
-                    {/* כפתור רמקול מובנה תחת המילה באנגלית ללא היפוך הכרטיסייה */}
-                    <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="mt-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-4 py-1.5 rounded-full transition-all text-xs font-bold flex items-center gap-1 border border-indigo-100">
-                      🔊 שמעי איך הוגים
+                  {/* צד קדמי (אנגלית) - מוסתר כשהכרטיסייה הפוכה */}
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-br from-[#8E2DE2] to-[#4A00E0] rounded-[32px] shadow-2xl flex flex-col justify-center items-center p-8 text-white text-center" 
+                    style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
+                  >
+                    <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="absolute top-6 left-6 w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex justify-center items-center backdrop-blur-sm transition-all text-xl">
+                      🔊
                     </button>
-
-                    <div className="mt-4 text-xs font-semibold text-slate-400">
-                      סטטוס: {getFilteredWords()[currentIndex].status === 'V' ? <span className="text-emerald-500">יודעת! (V)</span> : <span className="text-rose-400">צריכה תרגול (X)</span>}
-                    </div>
-                    <p className="text-slate-400 text-[11px] mt-4 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">לחצי על הכרטיסייה לגלות את התרגום ✨</p>
+                    <h3 className="text-5xl font-extrabold tracking-tight mb-4 drop-shadow-md">{getFilteredWords()[currentIndex].english}</h3>
+                    <p className="text-white/70 text-sm font-medium">לחצ/י להפוך</p>
                   </div>
 
-                  {/* BACK SIDE (HEBREW) */}
-                  <div className="absolute inset-0 bg-indigo-600 text-white rounded-2xl backface-hidden rotate-y-180 flex flex-col justify-center items-center p-6 shadow-inner">
-                    <span className="text-xs font-black text-indigo-200 uppercase tracking-widest mb-2">עברית</span>
-                    <h3 className="text-4xl font-extrabold tracking-tight">{getFilteredWords()[currentIndex].hebrew}</h3>
+  {/* צד אחורי (עברית) - מוצג בצורה ישרה כשהכרטיסייה הפוכה */}
+                  <div 
+                    className="absolute inset-0 bg-white border border-slate-200 rounded-[32px] shadow-2xl flex flex-col justify-center items-center p-8 text-center" 
+                    style={{ 
+                      backfaceVisibility: 'hidden', 
+                      WebkitBackfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)' 
+                    }}
+                  >
+                    <span className="text-primary font-black tracking-widest text-xs uppercase mb-3">התרגום לעברית</span>
+                    
+                    {/* התרגום בעברית בגדול */}
+                    <h3 className="text-5xl font-black text-slate-900 mb-6" dir="rtl">{getFilteredWords()[currentIndex].hebrew}</h3>
+                    
+                    {/* המילה באנגלית בקטן יותר עם כפתור השמעה */}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} 
+                      className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 px-6 py-3 rounded-full font-bold text-lg flex items-center gap-3 mb-6 transition-all shadow-sm"
+                      dir="ltr"
+                    >
+                      <span>{getFilteredWords()[currentIndex].english}</span>
+                      <span className="text-base opacity-70">🔊</span>
+                    </button>
+                    
+                    {/* סטטוס המילה */}
+                    <div className={`text-sm font-bold ${getFilteredWords()[currentIndex].status === 'V' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      סטטוס: {getFilteredWords()[currentIndex].status === 'V' ? 'יודעת (V)' : 'צריכה תרגול (X)'}
+                    </div>
                   </div>
 
                 </div>
               </div>
 
-              <button onClick={() => { if(currentIndex < getFilteredWords().length - 1) { setCurrentIndex(currentIndex + 1); setIsFlipped(false); } }} disabled={currentIndex === getFilteredWords().length - 1} className="bg-white hover:bg-indigo-50 border border-slate-200 p-3 rounded-full shadow-sm transition-all disabled:opacity-30 disabled:hover:bg-white text-lg font-bold">⬅️</button>
+              {/* חץ שמאלה */}
+              <button onClick={() => { if(currentIndex < getFilteredWords().length - 1) { setCurrentIndex(currentIndex + 1); setIsFlipped(false); } }} disabled={currentIndex === getFilteredWords().length - 1} className="w-14 h-14 bg-white border border-slate-200 rounded-full flex justify-center items-center shadow-sm disabled:opacity-30 hover:bg-slate-50 transition-all shrink-0">
+                <div className="bg-blue-300 text-white w-6 h-6 rounded flex justify-center items-center font-bold">⬅️</div>
+              </button>
             </div>
 
-            <div className="space-y-3 max-w-sm mx-auto pt-2">
-              <div className="flex gap-3">
-                <button onClick={() => handleWordStatus(getFilteredWords()[currentIndex].id, 'V')} className={`w-1/2 py-3.5 px-4 rounded-xl font-bold transition-all shadow-md active:scale-95 ${getFilteredWords()[currentIndex].status === 'V' ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : 'bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>ידעתי! V 👍</button>
-                <button onClick={() => handleWordStatus(getFilteredWords()[currentIndex].id, 'X')} className={`w-1/2 py-3.5 px-4 rounded-xl font-bold transition-all shadow-md active:scale-95 ${getFilteredWords()[currentIndex].status === 'X' ? 'bg-rose-600 text-white ring-4 ring-rose-100' : 'bg-white border border-rose-200 text-rose-600 hover:bg-rose-50'}`}>לא ידעתי... X ❌</button>
-              </div>
-            </div>
-          </div>
-        )}
-        {page === 'practice' && getFilteredWords().length === 0 && (
-          <div className="text-center p-12 bg-white rounded-2xl border border-slate-200">
-            <p className="text-lg font-bold text-slate-700">אין מילים העונות על סינון זה כרגע ביחידה! 🎉</p>
-            <button onClick={fetchDashboard} className="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-xl">חזרה לדשבורד</button>
-          </div>
-        )}
-
-        {/* PAGE 5: WORD DIRECTORY LIST (תצוגת הרשימה הרחבה החדשה) */}
-        {page === 'word_list' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
-              <div>
-                <h3 className="font-black text-xl text-slate-900">{selectedUnitName}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">מאגר המילים המלא — לעיון, האזנה ומעקב סטטוס</p>
-              </div>
-              <button onClick={fetchDashboard} className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition-all font-bold shadow-md shadow-indigo-100">חזרה לבית 🏠</button>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-right border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs uppercase tracking-wider">
-                      <th className="p-4">המילה באנגלית</th>
-                      <th className="p-4">הקראה</th>
-                      <th className="p-4">תרגום לעברית</th>
-                      <th className="p-4 text-center">סטטוס נוכחי</th>
-                      <th className="p-4 text-center">עריכת סימון מהירה</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-sm font-medium text-slate-700">
-                    {words.map((word) => (
-                      <tr key={word.id} className="hover:bg-slate-50/80 transition-all">
-                        {/* אנגלית */}
-                        <td className="p-4 font-bold text-slate-900 text-base tracking-tight">{word.english}</td>
-                        
-                        {/* רמקול להקראה */}
-                        <td className="p-4">
-                          <button onClick={() => speakWord(word.english)} className="text-base bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 p-1.5 rounded-full transition-all" title="הקראת מילה">🔊</button>
-                        </td>
-                        
-                        {/* עברית */}
-                        <td className="p-4 text-slate-600">{word.hebrew}</td>
-                        
-                        {/* סטטוס ויזואלי */}
-                        <td className="p-4 text-center">
-                          {word.status === 'V' ? (
-                            <span className="inline-block bg-emerald-100 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-full border border-emerald-200 shadow-sm">יודעת! V</span>
-                          ) : (
-                            <span className="inline-block bg-rose-100 text-rose-700 text-xs font-bold px-2.5 py-1 rounded-full border border-rose-200 shadow-sm">לא יודעת X</span>
-                          )}
-                        </td>
-                        
-                        {/* עריכה מהירה מתוך הטבלה */}
-                        <td className="p-4 text-center">
-                          <div className="inline-flex gap-1.5 bg-slate-100 p-1 rounded-lg">
-                            <button onClick={() => handleWordStatus(word.id, 'V')} className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${word.status === 'V' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-500 hover:text-emerald-600'}`}>V</button>
-                            <button onClick={() => handleWordStatus(word.id, 'X')} className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${word.status === 'X' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 hover:text-rose-600'}`}>X</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {/* כפתורי למטה (אדום וירוק) */}
+            <div className="flex justify-center gap-6 max-w-sm mx-auto mt-10">
+              <button onClick={() => handleWordStatus(getFilteredWords()[currentIndex].id, 'X')} className="flex-1 bg-[#EF4444] hover:bg-red-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-red-500/30 text-lg transition-all active:scale-95 border border-red-600">
+                לא ידעתי... ❌
+              </button>
+              <button onClick={() => handleWordStatus(getFilteredWords()[currentIndex].id, 'V')} className="flex-1 bg-white hover:bg-emerald-50 text-[#10B981] font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/10 text-lg transition-all active:scale-95 border-2 border-[#10B981]/30">
+                ידעתי! V 👍
+              </button>
             </div>
           </div>
         )}
 
-        {/* PAGE 4: THE EXAM ARENA */}
+        {/* ... (שאר הקוד של המבחן הממוקד זהה ברובו ועובד מעולה) ... */}
         {page === 'exam' && examWords.length > 0 && !examFinished && (
-          <div className="space-y-6 text-center">
-            <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex justify-between items-center">
-              <span className="font-bold text-slate-800">בחינה רנדומלית בתהליך 📝</span>
-              <span className="text-sm font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">שאלה {currentIndex + 1} מתוך {examWords.length}</span>
-            </div>
+           <div className="space-y-8 text-center max-w-2xl mx-auto">
+             <h2 className="text-3xl font-black text-slate-900">בחינה ממוקדת 📝</h2>
+             
+             <div className="w-full h-80 bg-white rounded-[32px] shadow-2xl border border-slate-100 flex flex-col justify-center items-center p-8 cursor-pointer transition-all" onClick={() => setIsFlipped(!isFlipped)}>
+               {!isFlipped ? (
+                 <>
+                   <h3 className="text-6xl font-black text-slate-900 mb-6">{examWords[currentIndex].english}</h3>
+                   <p className="text-slate-400 font-bold">לחצי כדי לחשוף את התשובה</p>
+                 </>
+               ) : (
+                 <>
+                   <span className="text-sm font-bold text-emerald-500 uppercase mb-3">התרגום הנכון:</span>
+                   <h3 className="text-5xl font-black text-emerald-600">{examWords[currentIndex].hebrew}</h3>
+                 </>
+               )}
+             </div>
 
-            <div className="w-full max-w-md mx-auto h-64 bg-white rounded-2xl shadow-lg border border-slate-200 flex flex-col justify-center items-center p-6 my-8" onClick={() => setIsFlipped(!isFlipped)}>
-              {!isFlipped ? (
-                <>
-                  <span className="text-xs font-bold text-slate-300 uppercase mb-2">המילה באנגלית:</span>
-                  <h3 className="text-4xl font-black text-slate-900">{examWords[currentIndex].english}</h3>
-                  
-                  <button onClick={(e) => { e.stopPropagation(); speakWord(examWords[currentIndex].english); }} className="mt-3 bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full transition-all text-xs font-bold">
-                    🔊 הקשבה
-                  </button>
-                  
-                  <p className="text-slate-400 text-xs mt-6">לחצי כדי לחשוף את התשובה הנכונה ולבדוק את עצמך</p>
-                </>
-              ) : (
-                <>
-                  <span className="text-xs font-bold text-emerald-500 uppercase mb-2">התרגום הנכון הוא:</span>
-                  <h3 className="text-4xl font-black text-emerald-600 mb-4">{examWords[currentIndex].hebrew}</h3>
-                </>
-              )}
-            </div>
-
-            {isFlipped && (
-              <div className="flex justify-center gap-4 max-w-xs mx-auto transition-all">
-                <button onClick={() => handleExamAnswer(true)} className="w-1/2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md">צדקתי! ✅</button>
-                <button onClick={() => handleExamAnswer(false)} className="w-1/2 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl shadow-md">טעיתי... ❌</button>
-              </div>
-            )}
-          </div>
+             {isFlipped && (
+               <div className="flex justify-center gap-6 max-w-sm mx-auto">
+                 <button onClick={() => handleExamAnswer(true)} className="flex-1 bg-[#10B981] text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/30 text-lg transition-all active:scale-95">צדקתי ✅</button>
+                 <button onClick={() => handleExamAnswer(false)} className="flex-1 bg-[#EF4444] text-white font-bold py-4 rounded-2xl shadow-lg shadow-red-500/30 text-lg transition-all active:scale-95">טעיתי ❌</button>
+               </div>
+             )}
+           </div>
         )}
 
-        {/* EXAM COMPILATION SUMMARY */}
         {page === 'exam' && examFinished && (
-          <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-8 max-w-md mx-auto text-center space-y-6">
-            <h3 className="text-3xl font-black text-slate-900">סיכום המבחן שלך 🏁</h3>
-            <div className="text-7xl font-black text-indigo-600 bg-indigo-50 py-6 rounded-2xl border border-indigo-100">{getExamGrade()}%</div>
-            <p className="text-slate-700 font-medium px-4">{getMotivationalMessage(getExamGrade())}</p>
-            <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-100 py-4 text-sm">
-              <div>
-                <span className="block text-slate-400 font-medium">מילים שידעת</span>
-                <span className="text-2xl font-bold text-emerald-500">{examAnswers.filter(a => a.correct).length}</span>
-              </div>
-              <div>
-                <span className="block text-slate-400 font-medium">טעויות</span>
-                <span className="text-2xl font-bold text-rose-500">{examAnswers.filter(a => !a.correct).length}</span>
-              </div>
+          <div className="bg-white border border-slate-200 shadow-xl rounded-[32px] p-10 max-w-lg mx-auto text-center space-y-8">
+            <h3 className="text-4xl font-black text-slate-900">סיכום המבחן 🏁</h3>
+            <div className="text-8xl font-black text-primary bg-primary/10 py-8 rounded-[32px] border border-primary/20">{getExamGrade()}%</div>
+            <div className="grid grid-cols-2 gap-4 border-t border-b border-slate-100 py-6">
+              <div><span className="block text-slate-400 font-bold mb-1">הצלחות</span><span className="text-3xl font-black text-emerald-500">{examAnswers.filter(a => a.correct).length}</span></div>
+              <div><span className="block text-slate-400 font-bold mb-1">טעויות</span><span className="text-3xl font-black text-rose-500">{examAnswers.filter(a => !a.correct).length}</span></div>
             </div>
-            <button onClick={fetchDashboard} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-3 rounded-xl shadow-lg transition-all">חזרה לעמוד הבית 🏠</button>
+            <button onClick={fetchDashboard} className="w-full bg-primary hover:bg-primary/90 text-white font-bold p-4 rounded-2xl shadow-lg shadow-primary/30 transition-all text-lg">חזרה ללוח הבקרה</button>
           </div>
         )}
 
