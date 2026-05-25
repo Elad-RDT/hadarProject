@@ -7,10 +7,17 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'hadar_secret_key_123'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hadarcabulary.db'
+
+# 1. הגדרת נתיב מוחלט למסד הנתונים כדי ש-Render לא יאבד אותו
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'hadarcabulary.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# תיקון ה-CORS: אישור מדויק לנטליפיי ולמחשב שלך לגשת לשרת
+# 2. הגדרות חובה כדי שעוגיות (התחברות) יעבדו בין שני דומיינים שונים בענן
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
+
+# 3. תיקון ה-CORS: אישור מדויק לנטליפיי ולמחשב שלך
 CORS(app, supports_credentials=True, resources={
     r"/api/*": {
         "origins": ["http://localhost:5173", "https://hadarcabulary.netlify.app"]
@@ -334,12 +341,13 @@ def seed_data():
     else:
         print("ℹ️ יחידה 4 כבר קיימת במסד הנתונים.")
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        seed_data()
+# הרצה אוטומטית שחלה גם ב-Render (Gunicorn)
+with app.app_context():
+    db.create_all()
+    seed_data()
 
-    # הרצה דינמית שמתאימה גם למחשב שלך וגם לענן
+# הרצה מקומית בלבד למחשב שלך
+if __name__ == '__main__':
     import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
