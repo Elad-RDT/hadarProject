@@ -274,8 +274,7 @@ const startExam = async (count, unitId) => {
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => openWordList(unit.id, unit.name)} className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold px-3 py-2 rounded-xl transition-all text-sm shadow-sm flex items-center gap-1">צפייה בכל המילים 👁️</button>
                       <button onClick={() => startPractice(unit.id)} className="bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 font-bold px-3 py-2 rounded-xl transition-all text-sm shadow-sm">כרטיסיות תרגול 🃏</button>
-                      <button onClick={() => startExam('30')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl transition-all text-sm shadow-md shadow-indigo-100">מבחן מהיר 📝</button>
-                    </div>
+                      <button onClick={() => startExam('30', unit.id)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl transition-all text-sm shadow-md shadow-indigo-100">מבחן מהיר 📝</button>                    </div>
                   </div>
                 ))}
               </div>
