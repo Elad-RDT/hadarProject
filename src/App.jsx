@@ -17,6 +17,8 @@ function App() {
   const [examWords, setExamWords] = useState([]);
   const [examAnswers, setExamAnswers] = useState([]);
   const [examFinished, setExamFinished] = useState(false);
+  const [examCount, setExamCount] = useState('10');
+  const [examUnitId, setExamUnitId] = useState('1'); // ברירת מחדל יחידה 1
 
   // טפסים
   const [isLogin, setIsLogin] = useState(true);
@@ -147,28 +149,27 @@ function App() {
     }
   };
 
-  const startExam = async (count) => {
-    try {
-      const data = await apiFetch(`/words/1`);
-      let shuffled = [...data];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      if (count !== 'all') {
-        shuffled = shuffled.slice(0, parseInt(count));
-      }
-      setExamWords(shuffled);
-      setExamAnswers([]);
-      setCurrentIndex(0);
-      setIsFlipped(false);
-      setExamFinished(false);
-      setPage('exam');
-    } catch (err) {
-      alert(err.message);
+const startExam = async (count, unitId) => {
+  try {
+    const data = await apiFetch(`/words/${unitId}`);
+    let shuffled = [...data];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-  };
-
+    if (count !== 'all') {
+      shuffled = shuffled.slice(0, parseInt(count));
+    }
+    setExamWords(shuffled);
+    setExamAnswers([]);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setExamFinished(false);
+    setPage('exam');
+  } catch (err) {
+    alert(err.message);
+  }
+};
   const handleExamAnswer = (isCorrect) => {
     setExamAnswers([...examAnswers, { wordId: examWords[currentIndex].id, correct: isCorrect }]);
     if (currentIndex < examWords.length - 1) {
@@ -280,17 +281,47 @@ function App() {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-center">
-              <h4 className="text-lg font-bold text-slate-900 mb-2">מוכנה לבחון את עצמך? 🚀</h4>
-              <p className="text-slate-400 text-sm mb-4">בחר כמות מילים למבחן רנדומלי ומעורבב לחלוטין:</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-xl mx-auto">
-                {['10', '30', '50', 'all'].map(count => (
-                  <button key={count} onClick={() => startExam(count)} className="bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 font-bold p-3 rounded-xl transition-all text-sm shadow-sm border border-slate-200/50">
-                    {count === 'all' ? 'כל המילים' : `${count} מילים`}
-                  </button>
-                ))}
-              </div>
-            </div>
+<div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-center">
+  <h4 className="text-lg font-bold text-slate-900 mb-4">מוכנה לבחון את עצמך? 🚀</h4>
+  
+  <div className="flex flex-col md:flex-row justify-center items-center gap-4 max-w-xl mx-auto mb-6">
+    {/* 1. בחירת יחידה מהרשימה הקיימת בדינמיות */}
+    <div className="w-full md:w-1/2 text-right">
+      <label className="block text-xs font-bold text-slate-500 mb-1">1. בחרי יחידת לימוד:</label>
+      <select 
+        value={examUnitId} 
+        onChange={(e) => setExamUnitId(e.target.value)}
+        className="w-full border border-slate-200 bg-slate-50 p-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+      >
+        {dashboardData.units.map(u => (
+          <option key={u.id} value={u.id}>{u.name}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* 2. בחירת כמות מילים */}
+    <div className="w-full md:w-1/2 text-right">
+      <label className="block text-xs font-bold text-slate-500 mb-1">2. כמות מילים למבחן:</label>
+      <select 
+        value={examCount} 
+        onChange={(e) => setExamCount(e.target.value)}
+        className="w-full border border-slate-200 bg-slate-50 p-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-sm"
+      >
+        <option value="10">10 מילים</option>
+        <option value="30">30 מילים</option>
+        <option value="50">50 מילים</option>
+        <option value="all">כל מילות היחידה</option>
+      </select>
+    </div>
+  </div>
+
+  <button 
+    onClick={() => startExam(examCount, examUnitId)}
+    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-xl transition-all text-sm shadow-md shadow-indigo-100 w-full max-w-xs mx-auto block"
+  >
+    התחלת מבחן ממוקד ✍️
+  </button>
+</div>
           </div>
         )}
 
