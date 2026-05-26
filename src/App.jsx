@@ -28,12 +28,12 @@ function App() {
     if (user) fetchDashboard();
   }, [user]);
 
-  const apiFetch = async (endpoint, options = {}) => {
+const apiFetch = async (endpoint, options = {}) => {
     options.headers = { ...options.headers, 'Content-Type': 'application/json' };
     options.credentials = 'include';
-    const baseURL = import.meta.env.DEV 
-      ? 'http://localhost:5000/api' 
-      : 'https://hadarcabulary-backend.onrender.com/api';
+    
+    // הגדרנו כתובת קשיחה לענן כדי למנוע טעויות בטלפון
+    const baseURL = 'https://hadarcabulary-backend.onrender.com/api';
 
     const res = await fetch(`${baseURL}${endpoint}`, options);
     const data = await res.json();
@@ -41,9 +41,8 @@ function App() {
     return data;
   };
 
-  const handleAuth = async (e) => {
+const handleAuth = async (e) => {
     e.preventDefault();
-    setError('');
     try {
       if (isLogin) {
         const data = await apiFetch('/login', { method: 'POST', body: JSON.stringify({ phone_number: phone, password }) });
@@ -52,11 +51,11 @@ function App() {
         fetchDashboard();
       } else {
         const data = await apiFetch('/register', { method: 'POST', body: JSON.stringify({ phone_number: phone, password, first_name: firstName }) });
-        alert(data.message);
+        alert("ההרשמה הצליחה! עכשיו אפשר להתחבר.");
         setIsLogin(true);
       }
     } catch (err) {
-      setError(err.message);
+      alert("שגיאה שקרתה: " + err.message); // זה יקפוץ לנו בטלפון אם משהו נדפק
     }
   };
 
