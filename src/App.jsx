@@ -203,9 +203,9 @@ const handleAuth = async (e) => {
               
               {error && <p className="text-destructive font-bold text-sm text-center bg-destructive/10 p-3 rounded-xl">{error}</p>}
               
-              <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold p-4 rounded-2xl shadow-lg shadow-primary/30 transition-all text-lg mt-4">
-                {isLogin ? 'כניסה למערכת' : 'יצירת משתמש'}
-              </button>
+<button type="button" onClick={handleAuth} className="w-full bg-primary hover:bg-primary/90 text-white font-bold p-4 rounded-2xl shadow-lg shadow-primary/30 transition-all text-lg mt-4">
+  {isLogin ? 'כניסה למערכת' : 'יצירת משתמש'}
+</button>
             </form>
           </div>
         )}
