@@ -1,41 +1,47 @@
 @import "tailwindcss";
-@config "../tailwind.config.js";
 
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+/* ייבוא פונט Rubik מגוגל */
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap');
+
+@theme {
+  --font-rubik: 'Rubik', sans-serif;
+}
 
 @layer base {
-  :root {
-    --background: 270 30% 98%;
-    --foreground: 270 40% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 270 40% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 270 40% 10%;
-    --primary: 265 84% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 270 30% 94%;
-    --secondary-foreground: 270 40% 15%;
-    --muted: 270 20% 94%;
-    --muted-foreground: 270 10% 45%;
-    --accent: 330 80% 60%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 270 20% 90%;
-    --input: 270 20% 90%;
-    --ring: 265 84% 55%;
-    --radius: 0.5rem;
-  }
-
-  * {
-    border-color: hsl(var(--border));
-    outline-color: hsl(var(--ring) / 0.5);
-  }
-
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: 'Heebo', sans-serif;
+    font-family: var(--font-rubik);
+    background-color: #f7f9fc; /* רקע אפרפר-כחלחל סופר עדין ונעים לעין */
+    color: #374151;
     direction: rtl;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* המחלקה שתעשה לנו את הקסם של הכרטיסיות */
+  .game-card {
+    @apply bg-white rounded-[32px] border-2 border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300;
+  }
+
+  /* כפתורי התלת-ממד המשחקיים! */
+  .btn-3d-primary {
+    @apply bg-[#58cc02] text-white font-black rounded-2xl border-b-4 border-[#58a700] hover:bg-[#46a302] active:border-b-0 active:translate-y-1 transition-all py-3 px-6 flex justify-center items-center gap-2 select-none;
+  }
+  
+  .btn-3d-purple {
+    @apply bg-[#ce82ff] text-white font-black rounded-2xl border-b-4 border-[#a559ce] hover:bg-[#b86be8] active:border-b-0 active:translate-y-1 transition-all py-3 px-6 flex justify-center items-center gap-2 select-none;
+  }
+  
+  .btn-3d-danger {
+    @apply bg-[#ff4b4b] text-white font-black rounded-2xl border-b-4 border-[#ea2b2b] hover:bg-[#e03a3a] active:border-b-0 active:translate-y-1 transition-all py-3 px-6 flex justify-center items-center gap-2 select-none;
+  }
+  
+  .btn-3d-white {
+    @apply bg-white text-slate-700 font-black rounded-2xl border-2 border-slate-200 border-b-4 hover:bg-slate-50 active:border-b-2 active:translate-y-1 transition-all py-3 px-6 flex justify-center items-center gap-2 select-none;
+  }
+
+  /* כותרות ססגוניות */
+  .title-glow {
+    @apply font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500 drop-shadow-sm;
   }
 }
