@@ -33,6 +33,13 @@ function App() {
   const [toast, setToast] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
 
+  const [hint, setHint] = useState(null);
+  const [isLoadingHint, setIsLoadingHint] = useState(false);
+
+  useEffect(() => {
+    setHint(null);
+  }, [currentIndex]);
+
     useEffect(() => {
         const savedPhone = localStorage.getItem('hadar_phone');
         if (savedPhone) {
@@ -204,12 +211,60 @@ const handleAuth = async (e) => {
     setPage('practice');
   };
 
-  const handleWordStatus = async (wordId, status, fromList = false) => {
+const handleWordStatus = async (wordId, status, fromList = false) => {
+    // 1. שומרים את המצב הישן בזיכרון, למקרה שהאינטרנט יקרוס ונצטרך "לבטל" את הלחיצה
+    const previousWords = [...words];
+    const previousDashboard = dashboardData ? JSON.parse(JSON.stringify(dashboardData)) : null;
+
     try {
+      // 2. עדכון אופטימי ומיידי של המסך (0 מילישניות המתנה)
+      setWords(words.map(w => w.id === wordId ? { ...w, status } : w));
+      
+      if (fromList) {
+        setSelectedUnitWords(prev => prev.map(w => w.id === wordId ? { ...w, status } : w));
+      }
+
+      if (dashboardData) {
+        setDashboardData(prev => ({
+          ...prev,
+          rawProgress: { ...prev.rawProgress, [wordId]: status }
+        }));
+      }
+
+      // טיפול באנימציות ובמעבר כרטיסיות (רק אם אנחנו במצב תרגול)
+      if (!fromList) {
+        if (status === 'V') setToast({ message: "מעולה!",img: "/bj.png", type: "success" });
+        else setToast({ message: "נמשיך לתרגל 💪", type: "error" });
+
+        setIsFlipped(false);
+
+        setTimeout(() => {
+          // בדיקה האם המילה עומדת להיעלם בגלל הסינון הנוכחי
+          const willDisappear = filterMode === 'only_X' && status === 'V';
+          const currentLength = getFilteredWords().length;
+
+          if (page === 'practice') {
+            if (currentIndex < currentLength - 1) {
+              // התיקון לבאג הדילוג: אם המילה נעלמת מהרשימה, המילה הבאה פשוט מחליקה למקום שלה, ולכן לא מעלים את האינדקס!
+              if (!willDisappear) {
+                setCurrentIndex(currentIndex + 1);
+              }
+            } else {
+              alert("🔥 סיימת את המילים בסינון זה!");
+              fetchDashboard(userPhone);
+            }
+          }
+        }, 200);
+
+        setTimeout(() => setToast(null), 400);
+      }
+
+      // 3. שמירה בענן (מתבצעת ברקע אחרי שהמסך כבר התעדכן)
       const userRef = doc(db, "users", userPhone);
       const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) return;
+
       const userData = userSnap.data();
-      
       const currentProgress = userData.progress || {};
       currentProgress[wordId] = status;
 
@@ -236,53 +291,16 @@ const handleAuth = async (e) => {
         last_practice_date: lastDate
       });
 
-// שינוי הסטטוס המקומי מיד
-      setWords(words.map(w => w.id === wordId ? { ...w, status } : w));
-      if (dashboardData) {
-        setDashboardData({
-          ...dashboardData,
-          streak: currentStreak,
-          rawProgress: currentProgress
-        });
-      }
-
-      if (fromList) {
-        setSelectedUnitWords(prev => prev.map(w => w.id === wordId ? { ...w, status } : w));
-        return; 
-      }
-
-     // חיווי פופ-אפ מהיר
-      if (status === 'V') {
-        setToast({ message: "מעולה! 🎉", type: "success" });
-      } else {
-        setToast({ message: "נמשיך לתרגל 💪", type: "error" });
-      }
-
-      // 1. קודם כל מתחילים את האנימציה של הסיבוב חזרה לאנגלית
-      setIsFlipped(false);
-
-      // 2. טיימר א': מחכים בדיוק 200 מילישניות (כשהכרטיסייה מסובבת על הצד וחתוכה לעין) ומחליפים את המילה באוויר
-      setTimeout(() => {
-        if (page === 'practice') {
-          if (currentIndex < getFilteredWords().length - 1) {
-            setCurrentIndex(currentIndex + 1);
-          } else {
-            alert("🔥 סיימת את המילים בסינון זה!");
-            fetchDashboard(userPhone);
-          }
-        }
-      }, 200); // ה-200ms האלה הם "נקודת העיוורון" של האנימציה
-
-      // 3. טיימר ב': מחכים שהכרטיסייה תסיים את כל הדרך ל-0 מעלות ומעלימים את ה-Toast
-      setTimeout(() => {
-        setToast(null);
-      }, 400);
-
     } catch (err) {
-      alert("שגיאה בעדכון המילה: " + err.message);
+      // 4. מנגנון ההגנה: אם גוגל החזיר שגיאה קריטית שאי אפשר לשמור, מחזירים את האפליקציה למצב הקודם!
+      console.error("שגיאה קריטית בשמירה, מבטל שינויים חזותיים:", err);
+      setWords(previousWords);
+      if (previousDashboard) setDashboardData(previousDashboard);
+      
+      setToast({ message: "שגיאת רשת, השינוי לא נשמר ❌", type: "error" });
+      setTimeout(() => setToast(null), 2000);
     }
   };
-
   const getFilteredWords = () => filterMode === 'only_X' ? words.filter(w => w.status === 'X') : words;
 
   const speakWord = (text) => {
@@ -320,17 +338,63 @@ const handleAuth = async (e) => {
     setPage('exam');
   };
 
-  const handleExamAnswer = (isCorrect) => {
+const handleExamAnswer = (isCorrect) => {
     setExamAnswers([...examAnswers, { wordId: examWords[currentIndex].id, correct: isCorrect }]);
     if (currentIndex < examWords.length - 1) {
+      // מחליפים את המצב לאנגלית ומיד מקדמים למילה הבאה - בלי שום עיכוב!
       setIsFlipped(false);
-      setTimeout(() => setCurrentIndex(currentIndex + 1), 200);
+      setCurrentIndex(currentIndex + 1); 
     } else {
       setExamFinished(true);
     }
-  };
+  }; 
 
   const getExamGrade = () => examWords.length > 0 ? Math.round((examAnswers.filter(a => a.correct).length / examWords.length) * 100) : 0;
+
+const fetchHint = async (word) => {
+    setIsLoadingHint(true);
+    setHint(null);
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant", // החלפנו למודל הזמין והמעודכן ביותר של גרוק
+          messages: [{
+            role: "user",
+            content: `Write a single, simple, short everyday sentence in English using the word "${word}". The sentence should make the meaning of the word obvious. Return ONLY the English sentence, without any other text, quotes, or translations.`
+          }],
+          temperature: 0.7,
+          max_tokens: 50
+        })
+      });
+      
+      const data = await response.json();
+      
+      // הוספנו מלכודת שגיאות: אם גרוק עדיין כועס, הוא ידפיס לנו בדיוק למה בקונסול
+      if (!response.ok) {
+        console.error("Groq API Error Details:", data);
+        setHint(`שגיאה ${response.status}: בדוק את הקונסול (F12)`);
+        setIsLoadingHint(false);
+        return;
+      }
+
+      if (data.choices && data.choices.length > 0) {
+        setHint(data.choices[0].message.content.trim());
+      } else {
+        setHint("לא הצלחתי לייצר רמז כרגע.");
+      }
+    } catch (err) {
+      console.error("Network or Fetch Error:", err);
+      setHint("שגיאת תקשורת, נסה שוב.");
+    } finally {
+      setIsLoadingHint(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-[#f7f9fc] text-slate-800" dir="rtl">
@@ -362,10 +426,20 @@ const handleAuth = async (e) => {
           </div>
         )}
 
-        {/* אנימציית פידבק (TOAST) */}
+{/* אנימציית פידבק (TOAST) */}
         {toast && (
-          <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl font-black text-white text-lg animate-bounce transition-all border-b-4 ${toast.type === 'success' ? 'bg-[#58cc02] border-[#58a700]' : 'bg-[#ff4b4b] border-[#ea2b2b]'}`}>
-            {toast.message}
+          <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-6 py-3 sm:px-8 sm:py-4 rounded-2xl shadow-2xl font-black text-white text-lg animate-bounce transition-all border-b-4 flex items-center justify-center gap-3 min-w-[200px] ${toast.type === 'success' ? 'bg-[#58cc02] border-[#58a700]' : 'bg-[#ff4b4b] border-[#ea2b2b]'}`}>
+            
+            {/* אם קיימת תמונה באובייקט ה-toast, נציג אותה */}
+            {toast.img && (
+              <img 
+                src={toast.img} 
+                alt="feedback icon" 
+                className="w-8 h-8 sm:w-10 sm:h-10 object-cover rounded-full border-2 border-white/50 shadow-sm" 
+              />
+            )}
+            
+            <span>{toast.message}</span>
           </div>
         )}
 
@@ -391,24 +465,22 @@ const handleAuth = async (e) => {
                       <span className="font-black text-xl text-slate-800 break-words">{word.english}</span>
                     </div>
 
-                    {/* צד עברית וסטטוס (RTL) - מותאם רספונסיבית לנייד */}
-                    <div className="flex flex-col md:flex-row items-center justify-between md:justify-end gap-4 w-full md:w-1/2">
-                      {/* המילה בעברית - במרכז בנייד, בימין במחשב */}
-                      <span className="font-bold text-slate-600 text-lg text-center md:text-right w-full md:w-auto break-words">
+                    {/* צד עברית וסטטוס (RTL) - עיצוב נקי וזורם למובייל */}
+                    <div className="flex flex-col md:flex-row items-center justify-between md:justify-end gap-3 w-full md:w-1/2">
+                      <span className="font-bold text-slate-600 text-lg text-center md:text-right w-full md:w-auto break-words mb-2 md:mb-0">
                         {word.hebrew}
                       </span>
                       
-                      {/* אזור הכפתורים - יורד שורה וממרכז את עצמו בטלפון */}
-                      <div className="flex items-center justify-center md:justify-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t border-slate-50 md:border-t-0">
-                        {/* כפתור הזינוק לכרטיסייה */}
+                      <div className="flex items-center justify-center gap-2 w-full md:w-auto shrink-0">
+                        {/* כפתור הזינוק - אחיד בגובה ומעודן */}
                         <button 
                           onClick={() => jumpToWordInPractice(selectedUnit, word.id)}
-                          className="btn-3d-white text-xs py-2 px-4 border-purple-200 text-purple-600 hover:bg-purple-50"
+                          className="h-12 flex items-center justify-center bg-purple-50 text-purple-600 border-2 border-purple-100 hover:bg-purple-100 font-black text-sm px-4 rounded-2xl transition-all active:scale-95"
+                          title="עבור לכרטיסייה זו"
                         >
                           לכרטיסייה 🃏
                         </button>
 
-                        {/* כפתור הסטטוס וי/איקס */}
                         <button 
                           onClick={() => handleWordStatus(word.id, word.status === 'V' ? 'X' : 'V', true)}
                           className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-white text-xl transition-all active:scale-95 border-b-4 ${word.status === 'V' ? 'bg-[#58cc02] border-[#58a700] hover:bg-[#46a302]' : 'bg-slate-300 border-slate-400 hover:bg-slate-400'}`}
@@ -566,18 +638,71 @@ const handleAuth = async (e) => {
               <div className="w-full max-w-sm h-96 cursor-pointer" style={{ perspective: '1000px' }} onClick={() => setIsFlipped(!isFlipped)}>
                 <div className="w-full h-full transition-transform duration-500 relative" style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
                   
-                  {/* קדמי */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#7e22ce] to-[#3b82f6] rounded-[40px] shadow-[0_10px_40px_rgb(59,130,246,0.3)] flex flex-col justify-center items-center p-4 sm:p-8 text-white text-center border-4 border-white/20" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
-                    <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-12 h-12 sm:w-14 sm:h-14 bg-white/20 hover:bg-white/40 rounded-2xl flex justify-center items-center text-xl sm:text-2xl transition-colors active:scale-90 z-10">🔊</button>
-                    <h3 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4 drop-shadow-lg w-full px-2  mt-30">{getFilteredWords()[currentIndex].english}</h3>
-                    <p className="text-white/60 font-bold uppercase tracking-widest text-xs sm:text-sm mt-auto bg-white/10 px-4 py-2 rounded-full">לחצי להפוך</p>
+{/* קדמי - מעוצב ומרווח */}
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-br from-[#7e22ce] to-[#3b82f6] rounded-[40px] shadow-[0_10px_40px_rgb(59,130,246,0.3)] flex flex-col justify-between p-5 sm:p-8 text-white text-center border-4 border-white/20" 
+                    style={{ 
+                      backfaceVisibility: 'hidden', 
+                      WebkitBackfaceVisibility: 'hidden',
+                      pointerEvents: isFlipped ? 'none' : 'auto' /* התיקון: מנטרל לחיצות על הרמקול והרמז כשהצד הזה מוסתר */
+                    }}
+                  >
+                    
+                    {/* סרגל עליון: רמקול ותווית */}
+                    <div className="flex justify-between items-start w-full">
+                      <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-2xl flex justify-center items-center text-2xl transition-colors active:scale-95 z-10 relative">🔊</button>
+                      <span className="bg-white/20 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-widest uppercase opacity-80">English</span>
+                    </div>
+                    
+                    {/* אמצע: מילה ורמז (ממורכז אוטומטית) */}
+                    <div className="flex-1 flex flex-col justify-center items-center w-full my-4 z-10">
+                      <h3 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight drop-shadow-md w-full px-2 break-words leading-tight">
+                        {getFilteredWords()[currentIndex].english}
+                      </h3>
+                      
+                      {/* אזור ה-AI החכם - מעודן ונקי יותר */}
+                      <div className="w-full mt-6 flex flex-col items-center">
+                        {!hint && !isLoadingHint && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); fetchHint(getFilteredWords()[currentIndex].english); }}
+                            className="text-white font-bold text-sm bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 rounded-xl transition-all active:scale-95 relative z-20"
+                          >
+                             רמז מהדוקטור? <img src="/Doctor.jpeg" alt="Hints" className="w-5 h-10 inline-block  rounded-full" />
+                          
+                          </button>
+                        )}
+                        {isLoadingHint && (
+                          <span className="text-white/80 text-sm font-bold animate-pulse bg-white/10 px-4 py-2 rounded-xl border border-white/10">מנסח משפט... 🧠</span>
+                        )}
+                        {hint && (
+                          <div className="bg-black/15 backdrop-blur-sm px-5 py-3 rounded-2xl border border-white/10 max-w-full relative z-20">
+                            <p className="text-white/95 font-medium text-base sm:text-lg leading-snug text-center" dir="ltr">
+                              {hint}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* סרגל תחתון: אינדיקטור היפוך */}
+                    <div className="w-full flex justify-center">
+                      <p className="text-white/70 font-bold uppercase tracking-widest text-[10px] sm:text-xs bg-white/10 px-4 py-1.5 rounded-full">לחצי להפוך</p>
+                    </div>
                   </div>
 
                   {/* אחורי */}
-                  <div className="game-card absolute inset-0 flex flex-col justify-center items-center p-4 sm:p-8 text-center" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                  <div 
+                    className="game-card absolute inset-0 flex flex-col justify-center items-center p-4 sm:p-8 text-center" 
+                    style={{ 
+                      backfaceVisibility: 'hidden', 
+                      WebkitBackfaceVisibility: 'hidden', 
+                      transform: 'rotateY(180deg)',
+                      pointerEvents: isFlipped ? 'auto' : 'none' /* התיקון: מאפשר לחיצות על הרמקול העברי רק כשהצד הזה מוצג באמת */
+                    }}
+                  >
                     <span className="text-purple-500 font-black tracking-widest text-xs uppercase mb-4 bg-purple-50 px-3 py-1 rounded-full mt-4">התרגום לעברית</span>
                     <h3 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 mb-6 leading-tight w-full px-2 break-words">{getFilteredWords()[currentIndex].hebrew}</h3>
-                    <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="btn-3d-white text-sm sm:text-lg w-full max-w-[200px]" dir="ltr">
+                    <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="btn-3d-white text-sm sm:text-lg w-full max-w-[200px] relative z-20" dir="ltr">
                       <span className="truncate max-w-full">{getFilteredWords()[currentIndex].english}</span> 🔊
                     </button>
                   </div>
