@@ -9,7 +9,7 @@ const getTodayString = () => new Date().toISOString().split('T')[0];
 function App() {
   const [user, setUser] = useState(() => localStorage.getItem('hadar_user') || null);
   const [userPhone, setUserPhone] = useState(() => localStorage.getItem('hadar_phone') || null);
-  const [page, setPage] = useState('auth'); 
+  const [page, setPage] = useState('loading'); 
   const [dashboardData, setDashboardData] = useState(null);
   const [selectedUnit, setSelectedUnit] = useState(null);
   
@@ -33,11 +33,16 @@ function App() {
   const [toast, setToast] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (user && userPhone) {
-      fetchDashboard(userPhone);
-    }
-  }, [user, userPhone]);
+    useEffect(() => {
+        const savedPhone = localStorage.getItem('hadar_phone');
+        if (savedPhone) {
+        // אם היא כבר מחוברת, משוך נתונים ועבור לדשבורד
+        fetchDashboard(savedPhone);
+        } else {
+        // אם לא, הצג את מסך ההתחברות
+        setPage('auth');
+        }
+    }, []); // המערך הריק מונע את הריצות הכפולות שמקריסות את הטלפון
 
 const handleAuth = async (e) => {
     e.preventDefault();
@@ -314,6 +319,14 @@ const handleAuth = async (e) => {
       )}
 
       <div className="max-w-5xl mx-auto p-4 md:p-8">
+        
+        {/* עמוד טעינה (מיידי) */}
+        {page === 'loading' && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-pulse">
+            <img src="/hadarFace.jpeg" alt="Loading" className="w-24 h-24 object-cover rounded-full border-4 border-purple-200 shadow-lg mb-6" />
+            <h2 className="text-3xl font-black text-slate-400">טוען נתונים... ⏳</h2>
+          </div>
+        )}
 
         {/* אנימציית פידבק (TOAST) */}
         {toast && (
