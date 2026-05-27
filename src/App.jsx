@@ -635,16 +635,17 @@ const fetchHint = async (word) => {
             <div className="flex items-center justify-center gap-4 md:gap-8 my-10">
               <button onClick={() => { if(currentIndex > 0) { setCurrentIndex(currentIndex - 1); setIsFlipped(false); } }} disabled={currentIndex === 0} className="w-16 h-16 bg-white border-2 border-slate-200 border-b-4 rounded-2xl flex justify-center items-center shadow-sm disabled:opacity-40 disabled:border-b-2 disabled:translate-y-1 active:border-b-2 active:translate-y-1 hover:bg-slate-50 transition-all shrink-0 text-2xl">➡️</button>
 
-              <div className="w-full max-w-sm h-96 cursor-pointer" style={{ perspective: '1000px' }} onClick={() => setIsFlipped(!isFlipped)}>
-                <div className="w-full h-full transition-transform duration-500 relative" style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
+              <div className="w-full max-w-sm h-96 cursor-pointer" style={{ perspective: '1000px', WebkitPerspective: '1000px' }} onClick={() => setIsFlipped(!isFlipped)}>
+                <div className="w-full h-full transition-transform duration-500 relative" style={{ transformStyle: 'preserve-3d', WebkitTransformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
                   
-{/* קדמי - מעוצב ומרווח */}
+                  {/* קדמי - מעוצב ומרווח */}
                   <div 
                     className="absolute inset-0 bg-gradient-to-br from-[#7e22ce] to-[#3b82f6] rounded-[40px] shadow-[0_10px_40px_rgb(59,130,246,0.3)] flex flex-col justify-between p-5 sm:p-8 text-white text-center border-4 border-white/20" 
                     style={{ 
                       backfaceVisibility: 'hidden', 
                       WebkitBackfaceVisibility: 'hidden',
-                      pointerEvents: isFlipped ? 'none' : 'auto' /* התיקון: מנטרל לחיצות על הרמקול והרמז כשהצד הזה מוסתר */
+                      transform: 'rotateY(0deg) translateZ(1px)', /* התיקון לאייפון: מרחיק את השכבה למניעת זליגה */
+                      pointerEvents: isFlipped ? 'none' : 'auto'
                     }}
                   >
                     
@@ -660,15 +661,14 @@ const fetchHint = async (word) => {
                         {getFilteredWords()[currentIndex].english}
                       </h3>
                       
-                      {/* אזור ה-AI החכם - מעודן ונקי יותר */}
+                      {/* אזור ה-AI החכם - שמרתי על הרמז מהדוקטור! */}
                       <div className="w-full mt-6 flex flex-col items-center">
                         {!hint && !isLoadingHint && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); fetchHint(getFilteredWords()[currentIndex].english); }}
                             className="text-white font-bold text-sm bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 rounded-xl transition-all active:scale-95 relative z-20"
                           >
-                             רמז מהדוקטור? <img src="/Doctor.jpeg" alt="Hints" className="w-5 h-10 inline-block  rounded-full" />
-                          
+                             רמז מהדוקטור? <img src="/Doctor.jpeg" alt="Hints" className="w-5 h-10 inline-block rounded-full" />
                           </button>
                         )}
                         {isLoadingHint && (
@@ -692,12 +692,12 @@ const fetchHint = async (word) => {
 
                   {/* אחורי */}
                   <div 
-                    className="game-card absolute inset-0 flex flex-col justify-center items-center p-4 sm:p-8 text-center" 
+                    className="game-card bg-white absolute inset-0 flex flex-col justify-center items-center p-4 sm:p-8 text-center rounded-[40px]" 
                     style={{ 
                       backfaceVisibility: 'hidden', 
                       WebkitBackfaceVisibility: 'hidden', 
-                      transform: 'rotateY(180deg)',
-                      pointerEvents: isFlipped ? 'auto' : 'none' /* התיקון: מאפשר לחיצות על הרמקול העברי רק כשהצד הזה מוצג באמת */
+                      transform: 'rotateY(180deg) translateZ(1px)', /* התיקון לאייפון: מקבע את השכבה האחורית באטימות */
+                      pointerEvents: isFlipped ? 'auto' : 'none' 
                     }}
                   >
                     <span className="text-purple-500 font-black tracking-widest text-xs uppercase mb-4 bg-purple-50 px-3 py-1 rounded-full mt-4">התרגום לעברית</span>
