@@ -31,6 +31,7 @@ function App() {
   const [error, setError] = useState('');
   const [selectedUnitWords, setSelectedUnitWords] = useState([]); 
   const [toast, setToast] = useState(null); 
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (user && userPhone) {
@@ -38,7 +39,7 @@ function App() {
     }
   }, [user, userPhone]);
 
-  const handleAuth = async (e) => {
+const handleAuth = async (e) => {
     e.preventDefault();
     setError('');
     
@@ -47,6 +48,8 @@ function App() {
       return;
     }
 
+    setIsLoading(true); // מדליקים את הטעינה כדי לשנות את הכפתור
+
     try {
       const userRef = doc(db, "users", phone.trim());
       const userSnap = await getDoc(userRef);
@@ -54,11 +57,13 @@ function App() {
       if (isLogin) {
         if (!userSnap.exists()) {
           setError('מספר פלאפון זה אינו רשום במערכת');
+          setIsLoading(false);
           return;
         }
         const userData = userSnap.data();
         if (userData.password !== password) {
           setError('סיסמה שגויה, נסה שוב!');
+          setIsLoading(false);
           return;
         }
         
@@ -66,9 +71,14 @@ function App() {
         localStorage.setItem('hadar_phone', phone.trim());
         setUser(userData.first_name);
         setUserPhone(phone.trim());
+        
+        // קריאה ישירה ומיידית למשיכת הנתונים ומעבר דף
+        await fetchDashboard(phone.trim()); 
+        
       } else {
         if (userSnap.exists()) {
           setError('מספר הטלפון כבר רשום במערכת');
+          setIsLoading(false);
           return;
         }
 
@@ -87,6 +97,8 @@ function App() {
       }
     } catch (err) {
       alert("שגיאה שקרתה בפיירבייס: " + err.message);
+    } finally {
+      setIsLoading(false); // תמיד מכבים את הטעינה בסוף, גם אם הייתה שגיאה
     }
   };
 
@@ -288,12 +300,13 @@ function App() {
       {page !== 'auth' && (
         <nav className="bg-white shadow-sm border-b-2 border-slate-200 py-4 px-8 flex justify-between items-center sticky top-0 z-50">
           <h1 className="text-2xl title-glow flex items-center gap-2 cursor-pointer" onClick={() => fetchDashboard(userPhone)}>
-            HadarCabulary <img src="/bj.png" alt="Hadar" className="inline-block w-12 h-12 align-middle object-cover rounded-full" />
+            HadarCabulary 
           </h1>
+
           {user && (
             <div className="flex items-center gap-6">
               <button onClick={() => { setUser(null); setUserPhone(null); localStorage.clear(); setPage('auth'); }} className="text-slate-400 hover:text-rose-500 flex items-center gap-2 text-sm font-bold transition-colors">
-                <span className="text-xl"></span> התנתקות 🚪
+                <span className="font-extrabold text-xl bg-gradient-to-l from-[hsl(265,84%,55%)] to-[hsl(330,80%,60%)] bg-clip-text text-transparent">התנתקות </span>
               </button>
             </div>
           )}
@@ -364,30 +377,30 @@ function App() {
               <button type="button" className={`w-1/2 py-3 text-sm font-black rounded-xl transition-all ${!isLogin ? 'bg-white shadow-sm text-purple-600 border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`} onClick={() => setIsLogin(false)}>הרשמה מהירה</button>
             </div>
 
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-4 text-right">
-              {!isLogin && (
+                <form onSubmit={handleAuth} className="space-y-4 text-right">
+                {!isLogin && (
+                    <div>
+                    <label className="block text-sm font-bold text-slate-500 mb-2 px-2">איך לקרוא לך?</label>
+                    <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-purple-400 focus:bg-white transition-all font-bold" />
+                    </div>
+                )}
                 <div>
-                  <label className="block text-sm font-bold text-slate-500 mb-2 px-2">איך לקרוא לך?</label>
-                  <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-purple-400 focus:bg-white transition-all font-bold" />
+                    <label className="block text-sm font-bold text-slate-500 mb-2 px-2">מספר פלאפון</label>
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-left font-bold tracking-wider" dir="ltr" />
                 </div>
-              )}
-              <div>
-                <label className="block text-sm font-bold text-slate-500 mb-2 px-2">מספר פלאפון</label>
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-left font-bold tracking-wider" dir="ltr" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-500 mb-2 px-2">סיסמה</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-left font-bold tracking-widest" dir="ltr" />
-              </div>
-              
-              {error && <p className="text-rose-500 font-bold text-sm text-center bg-rose-50 p-3 rounded-xl border border-rose-100">{error}</p>}
-              
-              <div className="pt-4">
-                <button type="button" onClick={handleAuth} className="w-full btn-3d-purple text-lg">
-                  {isLogin ? 'כניסה למערכת' : 'יצירת משתמש חדש'}
-                </button>
-              </div>
-            </form>
+                <div>
+                    <label className="block text-sm font-bold text-slate-500 mb-2 px-2">סיסמה</label>
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-200 p-4 rounded-2xl focus:outline-none focus:border-purple-400 focus:bg-white transition-all text-left font-bold tracking-widest" dir="ltr" />
+                </div>
+                
+                {error && <p className="text-rose-500 font-bold text-sm text-center bg-rose-50 p-3 rounded-xl border border-rose-100">{error}</p>}
+                
+                <div className="pt-4">
+                    <button type="submit" disabled={isLoading} className="w-full btn-3d-purple text-lg disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none">
+                    {isLoading ? 'מתחבר... ⏳' : (isLogin ? 'כניסה למערכת' : 'יצירת משתמש חדש')}
+                    </button>
+                </div>
+                </form>
           </div>
         )}
 
