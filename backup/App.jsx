@@ -502,7 +502,7 @@ const handleAuth = async (e) => {
           <div className="max-w-2xl mx-auto animate-fade-in">
             <div className="flex justify-between items-center mb-6 px-2">
               <h2 className="text-3xl font-black text-slate-800">תרגול כרטיסיות</h2>
-              <span className="text-sm font-black text-purple-600 bg-purple-100 border-2 border-purple-200 px-4 py-2 rounded-2xl" >מילה {currentIndex + 1} מתוך {getFilteredWords().length}</span>
+              <span className="text-sm font-black text-purple-600 bg-purple-100 border-2 border-purple-200 px-4 py-2 rounded-2xl">מילה {currentIndex + 1} מתוך {getFilteredWords().length}</span>
             </div>
 
             <div className="flex justify-center gap-3 mb-10">
@@ -519,7 +519,7 @@ const handleAuth = async (e) => {
                   {/* קדמי */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#7e22ce] to-[#3b82f6] rounded-[40px] shadow-[0_10px_40px_rgb(59,130,246,0.3)] flex flex-col justify-center items-center p-4 sm:p-8 text-white text-center border-4 border-white/20" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
                     <button onClick={(e) => { e.stopPropagation(); speakWord(getFilteredWords()[currentIndex].english); }} className="absolute top-4 left-4 sm:top-6 sm:left-6 w-12 h-12 sm:w-14 sm:h-14 bg-white/20 hover:bg-white/40 rounded-2xl flex justify-center items-center text-xl sm:text-2xl transition-colors active:scale-90 z-10">🔊</button>
-                    <h3 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4 drop-shadow-lg w-full px-2  mt-30">{getFilteredWords()[currentIndex].english}</h3>
+                    <h3 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4 drop-shadow-lg w-full px-2 break-words mt-8">{getFilteredWords()[currentIndex].english}</h3>
                     <p className="text-white/60 font-bold uppercase tracking-widest text-xs sm:text-sm mt-auto bg-white/10 px-4 py-2 rounded-full">לחצי להפוך</p>
                   </div>
 
