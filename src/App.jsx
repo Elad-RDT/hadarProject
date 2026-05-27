@@ -179,6 +179,31 @@ const handleAuth = async (e) => {
     setPage('practice');
   };
 
+  const jumpToWordInPractice = (unitId, targetWordId) => {
+    const unitWords = WORDS_DATA[unitId] || [];
+    const userProgress = dashboardData?.rawProgress || {};
+
+    const mappedWords = unitWords.map(w => ({
+      ...w,
+      status: userProgress[w.id] || 'X'
+    }));
+
+    // 1. טוענים את כל מילות היחידה
+    setWords(mappedWords);
+    setSelectedUnit(unitId);
+    
+    // 2. כופים על הכרטיסיות להציג את כל המילים כדי שהאינדקס יהיה מדויק
+    setFilterMode('all');
+    
+    // 3. מוצאים את האינדקס המדויק של המילה הספציפית ברשימה
+    const targetIndex = mappedWords.findIndex(w => w.id === targetWordId);
+    
+    // 4. מעדכנים את האינדקס ומזנקים לעמוד התרגול
+    setCurrentIndex(targetIndex !== -1 ? targetIndex : 0);
+    setIsFlipped(false);
+    setPage('practice');
+  };
+
   const handleWordStatus = async (wordId, status, fromList = false) => {
     try {
       const userRef = doc(db, "users", userPhone);
@@ -211,6 +236,7 @@ const handleAuth = async (e) => {
         last_practice_date: lastDate
       });
 
+// שינוי הסטטוס המקומי מיד
       setWords(words.map(w => w.id === wordId ? { ...w, status } : w));
       if (dashboardData) {
         setDashboardData({
@@ -225,24 +251,32 @@ const handleAuth = async (e) => {
         return; 
       }
 
+     // חיווי פופ-אפ מהיר
       if (status === 'V') {
         setToast({ message: "מעולה! 🎉", type: "success" });
       } else {
         setToast({ message: "נמשיך לתרגל 💪", type: "error" });
       }
 
+      // 1. קודם כל מתחילים את האנימציה של הסיבוב חזרה לאנגלית
+      setIsFlipped(false);
+
+      // 2. טיימר א': מחכים בדיוק 200 מילישניות (כשהכרטיסייה מסובבת על הצד וחתוכה לעין) ומחליפים את המילה באוויר
       setTimeout(() => {
-        setToast(null);
         if (page === 'practice') {
           if (currentIndex < getFilteredWords().length - 1) {
-            setIsFlipped(false);
             setCurrentIndex(currentIndex + 1);
           } else {
             alert("🔥 סיימת את המילים בסינון זה!");
             fetchDashboard(userPhone);
           }
         }
-      }, 800);
+      }, 200); // ה-200ms האלה הם "נקודת העיוורון" של האנימציה
+
+      // 3. טיימר ב': מחכים שהכרטיסייה תסיים את כל הדרך ל-0 מעלות ומעלימים את ה-Toast
+      setTimeout(() => {
+        setToast(null);
+      }, 400);
 
     } catch (err) {
       alert("שגיאה בעדכון המילה: " + err.message);
@@ -335,7 +369,7 @@ const handleAuth = async (e) => {
           </div>
         )}
 
-        {/* עמוד רשימת מילים (WORD LIST) */}
+{/* עמוד רשימת מילים (WORD LIST) */}
         {page === 'word_list' && (
           <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
             <div className="game-card p-6 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -357,18 +391,34 @@ const handleAuth = async (e) => {
                       <span className="font-black text-xl text-slate-800 break-words">{word.english}</span>
                     </div>
 
-                    {/* צד עברית וסטטוס (RTL) */}
-                    <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-1/2">
-                      <span className="font-bold text-slate-600 text-lg text-right break-words">{word.hebrew}</span>
+                    {/* צד עברית וסטטוס (RTL) - מותאם רספונסיבית לנייד */}
+                    <div className="flex flex-col md:flex-row items-center justify-between md:justify-end gap-4 w-full md:w-1/2">
+                      {/* המילה בעברית - במרכז בנייד, בימין במחשב */}
+                      <span className="font-bold text-slate-600 text-lg text-center md:text-right w-full md:w-auto break-words">
+                        {word.hebrew}
+                      </span>
                       
-                      <button 
-                        onClick={() => handleWordStatus(word.id, word.status === 'V' ? 'X' : 'V', true)}
-                        className={`w-12 h-12 shrink-0 flex items-center justify-center rounded-2xl font-black text-white text-xl transition-all active:scale-95 border-b-4 ${word.status === 'V' ? 'bg-[#58cc02] border-[#58a700] hover:bg-[#46a302]' : 'bg-slate-300 border-slate-400 hover:bg-slate-400'}`}
-                        title="לחץ כדי לשנות סטטוס"
-                      >
-                        {word.status === 'V' ? '✓' : '✗'}
-                      </button>
+                      {/* אזור הכפתורים - יורד שורה וממרכז את עצמו בטלפון */}
+                      <div className="flex items-center justify-center md:justify-end gap-3 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t border-slate-50 md:border-t-0">
+                        {/* כפתור הזינוק לכרטיסייה */}
+                        <button 
+                          onClick={() => jumpToWordInPractice(selectedUnit, word.id)}
+                          className="btn-3d-white text-xs py-2 px-4 border-purple-200 text-purple-600 hover:bg-purple-50"
+                        >
+                          לכרטיסייה 🃏
+                        </button>
+
+                        {/* כפתור הסטטוס וי/איקס */}
+                        <button 
+                          onClick={() => handleWordStatus(word.id, word.status === 'V' ? 'X' : 'V', true)}
+                          className={`w-12 h-12 flex items-center justify-center rounded-2xl font-black text-white text-xl transition-all active:scale-95 border-b-4 ${word.status === 'V' ? 'bg-[#58cc02] border-[#58a700] hover:bg-[#46a302]' : 'bg-slate-300 border-slate-400 hover:bg-slate-400'}`}
+                          title="לחץ כדי לשנות סטטוס"
+                        >
+                          {word.status === 'V' ? '✓' : '✗'}
+                        </button>
+                      </div>
                     </div>
+
                   </div>
                 ))}
               </div>
