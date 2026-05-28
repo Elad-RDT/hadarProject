@@ -620,6 +620,7 @@ const fetchHint = async (word) => {
         )}
 
         {/* תרגול כרטיסיות */}
+{/* תתרגול כרטיסיות - גרסת גימור מושלמת עם נקודת עיוורון */}
         {page === 'practice' && getFilteredWords().length > 0 && (
           <div className="max-w-2xl mx-auto animate-fade-in">
             <div className="flex justify-between items-center mb-6 px-2">
@@ -633,8 +634,23 @@ const fetchHint = async (word) => {
             </div>
 
             <div className="flex items-center justify-center gap-4 md:gap-8 my-10">
-              <button onClick={() => { if(currentIndex > 0) { setCurrentIndex(currentIndex - 1); setIsFlipped(false); } }} disabled={currentIndex === 0} className="w-16 h-16 bg-white border-2 border-slate-200 border-b-4 rounded-2xl flex justify-center items-center shadow-sm disabled:opacity-40 disabled:border-b-2 disabled:translate-y-1 active:border-b-2 active:translate-y-1 hover:bg-slate-50 transition-all shrink-0 text-2xl">➡️</button>
+              {/* חץ קדימה (ימינה) - אם יש צורך בניווט אחורה */}
+              <button 
+                onClick={() => { 
+                  if(currentIndex > 0) { 
+                    setIsFlipped(false); 
+                    setTimeout(() => {
+                      setCurrentIndex(currentIndex - 1); 
+                    }, 200);
+                  } 
+                }} 
+                disabled={currentIndex === 0} 
+                className="w-16 h-16 bg-white border-2 border-slate-200 border-b-4 rounded-2xl flex justify-center items-center shadow-sm disabled:opacity-40 disabled:border-b-2 disabled:translate-y-1 active:border-b-2 active:translate-y-1 hover:bg-slate-50 transition-all shrink-0 text-2xl"
+              >
+                ➡️
+              </button>
 
+              {/* הכרטיסייה עצמה - ללא key כדי לא לחתוך את האנימציה */}
               <div className="w-full max-w-sm h-96 cursor-pointer" style={{ perspective: '1000px', WebkitPerspective: '1000px' }} onClick={() => setIsFlipped(!isFlipped)}>
                 <div className="w-full h-full transition-transform duration-500 relative" style={{ transformStyle: 'preserve-3d', WebkitTransformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}>
                   
@@ -644,7 +660,7 @@ const fetchHint = async (word) => {
                     style={{ 
                       backfaceVisibility: 'hidden', 
                       WebkitBackfaceVisibility: 'hidden',
-                      transform: 'rotateY(0deg) translateZ(1px)', /* התיקון לאייפון: מרחיק את השכבה למניעת זליגה */
+                      transform: 'rotateY(0deg) translateZ(1px)', 
                       pointerEvents: isFlipped ? 'none' : 'auto'
                     }}
                   >
@@ -655,13 +671,13 @@ const fetchHint = async (word) => {
                       <span className="bg-white/20 px-3 py-1.5 rounded-xl text-[10px] font-black tracking-widest uppercase opacity-80">English</span>
                     </div>
                     
-                    {/* אמצע: מילה ורמז (ממורכז אוטומטית) */}
+                    {/* אמצע: מילה ורמז */}
                     <div className="flex-1 flex flex-col justify-center items-center w-full my-4 z-10">
                       <h3 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight drop-shadow-md w-full px-2 break-words leading-tight">
                         {getFilteredWords()[currentIndex].english}
                       </h3>
                       
-                      {/* אזור ה-AI החכם - שמרתי על הרמז מהדוקטור! */}
+                      {/* אזור ה-AI החכם */}
                       <div className="w-full mt-6 flex flex-col items-center">
                         {!hint && !isLoadingHint && (
                           <button 
@@ -690,13 +706,13 @@ const fetchHint = async (word) => {
                     </div>
                   </div>
 
-                  {/* אחורי */}
+                  {/* אחורי - צד עברית אטום */}
                   <div 
                     className="game-card bg-white absolute inset-0 flex flex-col justify-center items-center p-4 sm:p-8 text-center rounded-[40px]" 
                     style={{ 
                       backfaceVisibility: 'hidden', 
                       WebkitBackfaceVisibility: 'hidden', 
-                      transform: 'rotateY(180deg) translateZ(1px)', /* התיקון לאייפון: מקבע את השכבה האחורית באטימות */
+                      transform: 'rotateY(180deg) translateZ(1px)', 
                       pointerEvents: isFlipped ? 'auto' : 'none' 
                     }}
                   >
@@ -709,9 +725,24 @@ const fetchHint = async (word) => {
                 </div>
               </div>
 
-              <button onClick={() => { if(currentIndex < getFilteredWords().length - 1) { setCurrentIndex(currentIndex + 1); setIsFlipped(false); } }} disabled={currentIndex === getFilteredWords().length - 1} className="w-16 h-16 bg-white border-2 border-slate-200 border-b-4 rounded-2xl flex justify-center items-center shadow-sm disabled:opacity-40 disabled:border-b-2 disabled:translate-y-1 active:border-b-2 active:translate-y-1 hover:bg-slate-50 transition-all shrink-0 text-2xl">⬅️</button>
+              {/* חץ אחורה (שמאלה) - משתמש בטיימר האווירי */}
+              <button 
+                onClick={() => { 
+                  if(currentIndex < getFilteredWords().length - 1) { 
+                    setIsFlipped(false); 
+                    setTimeout(() => {
+                      setCurrentIndex(currentIndex + 1); 
+                    }, 200);
+                  } 
+                }} 
+                disabled={currentIndex === getFilteredWords().length - 1} 
+                className="w-16 h-16 bg-white border-2 border-slate-200 border-b-4 rounded-2xl flex justify-center items-center shadow-sm disabled:opacity-40 disabled:border-b-2 disabled:translate-y-1 active:border-b-2 active:translate-y-1 hover:bg-slate-50 transition-all shrink-0 text-2xl"
+              >
+                ⬅️
+              </button>
             </div>
 
+            {/* כפתורי התחתית - בשלב זה הפונקציה handleWordStatus שלך כבר מנהלת את ה-Timeout בעצמה */}
             <div className="flex justify-center gap-6 max-w-sm mx-auto mt-12">
               <button onClick={() => handleWordStatus(getFilteredWords()[currentIndex].id, 'X')} className="flex-1 btn-3d-danger text-xl py-4">לא ידעתי ✗</button>
               <button onClick={() => handleWordStatus(getFilteredWords()[currentIndex].id, 'V')} className="flex-1 btn-3d-primary text-xl py-4">ידעתי! ✓</button>
